@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency 'jwt', '~> 2.0'
   spec.add_runtime_dependency 'omniauth', '>= 1.9.2'
-  spec.add_runtime_dependency 'omniauth-oauth2', '~> 1.8.0'
+  spec.add_runtime_dependency 'omniauth-oauth2', '~> 1.7.3'
   spec.add_development_dependency "sinatra", '~> 2.2'
   spec.add_development_dependency "rake", '~> 12.3.3', '>= 12.3.3'
   spec.add_development_dependency 'rspec', '~> 3.6'
