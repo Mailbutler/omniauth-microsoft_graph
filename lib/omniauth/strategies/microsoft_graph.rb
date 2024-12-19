@@ -24,7 +24,14 @@ module OmniAuth
       option :authorized_client_ids, []
       option :skip_domain_verification, false
 
-      uid { raw_info["id"] }
+      uid do
+        if skip_info?
+          decoded_token = JWT.decode(access_token.token, nil, false)
+          decoded_token[0]['oid'] ? decoded_token[0]['oid'] : raw_info["id"]
+        else
+          raw_info["id"]
+        end
+      end
 
       info do
         {
@@ -64,6 +71,8 @@ module OmniAuth
       end
 
       def raw_info
+        return {} if skip_info?
+
         @raw_info ||= access_token.get('https://graph.microsoft.com/v1.0/me').parsed
       end
 
