@@ -61,6 +61,8 @@ module OmniAuth
       # To get to it, we need to decode the ID token with the key material from Microsoft's
       # OIDC configuration endpoint, and inspect it for the claim in question.
       def domain_verified_jwt_claim
+        return false unless id_token # this can happen if the admin configured OAuth tokens to not include an ID token
+
         oidc_config = access_token.get(OIDC_CONFIG_URL).parsed
         algorithms = oidc_config['id_token_signing_alg_values_supported']
         jwks = get_jwks(oidc_config)
