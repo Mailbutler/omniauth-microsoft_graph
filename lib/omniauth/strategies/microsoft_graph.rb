@@ -53,7 +53,7 @@ module OmniAuth
 
       def auth_hash
         super.tap do |ah|
-          verify_email(ah, access_token) unless skip_info?
+          verify_email(ah, access_token)
         end
       end
 
