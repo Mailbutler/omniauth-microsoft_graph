@@ -25,21 +25,16 @@ module OmniAuth
       option :skip_domain_verification, false
 
       uid do
-        if skip_info?
-          decoded_token = JWT.decode(access_token.token, nil, false)
-          decoded_token[0]['oid'] ? decoded_token[0]['oid'] : raw_info["id"]
-        else
-          raw_info["id"]
-        end
+        raw_info["id"]
       end
 
       info do
         {
-          'email' => raw_info["mail"],
-          'first_name' => raw_info["givenName"],
-          'last_name' => raw_info["surname"],
-          'name' => [raw_info["givenName"], raw_info["surname"]].join(' '),
-          'nickname' => raw_info["displayName"],
+          'email' => raw_info["mail"] || raw_info["email_address"],
+          'first_name' => raw_info["givenName"] || raw_info["given_name"],
+          'last_name' => raw_info["surname"] || raw_info["family_name"],
+          'name' => raw_info["display_name"] || raw_info["name"] || [raw_info["givenName"] || raw_info["given_name"], raw_info["surname"] || raw_info["family_name"]].join(' '),
+          'nickname' => raw_info["displayName"] || raw_info["display_name"],
         }
       end
 
@@ -71,9 +66,13 @@ module OmniAuth
       end
 
       def raw_info
-        return {} if skip_info?
+        # support legacy tokens for Office 365 REST API
+        @raw_info ||= jwt? ? access_token.get('https://graph.microsoft.com/v1.0/me').parsed : access_token.get('https://outlook.office.com/api/v2.0/me').parsed
+      rescue StandardError => e
+        raise unless jwt?
 
-        @raw_info ||= access_token.get('https://graph.microsoft.com/v1.0/me').parsed
+        decoded_token = JWT.decode(access_token.token, nil, false)
+        @raw_info ||= decoded_token[0].merge('id' => decoded_token[0]['oid'])
       end
 
       def callback_url
@@ -127,6 +126,10 @@ module OmniAuth
         scope_list = raw_scope.split(' ').map { |item| item.split(',') }.flatten
         scope_list.map! { |s| s =~ %r{^https?://} || BASE_SCOPES.include?(s) ? s : "#{BASE_SCOPE_URL}#{s}" }
         scope_list.join(' ')
+      end
+
+      def jwt?
+        access_token.token.split('.').size == 3
       end
 
       def verify_token(access_token)
