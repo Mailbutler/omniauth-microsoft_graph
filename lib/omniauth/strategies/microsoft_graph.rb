@@ -66,9 +66,8 @@ module OmniAuth
       end
 
       def raw_info
-        # support legacy tokens for Office 365 REST API
-        @raw_info ||= jwt? ? access_token.get('https://graph.microsoft.com/v1.0/me').parsed : access_token.get('https://outlook.office.com/api/v2.0/me').parsed
-      rescue StandardError => e
+        @raw_info ||= access_token.get(user_info_url).parsed
+      rescue StandardError
         raise unless jwt?
 
         decoded_token = JWT.decode(access_token.token, nil, false)
@@ -80,8 +79,7 @@ module OmniAuth
       end
 
       def custom_build_access_token
-        access_token = get_access_token(request)
-        access_token
+        get_access_token(request)
       end
 
       alias build_access_token custom_build_access_token
@@ -128,8 +126,18 @@ module OmniAuth
         scope_list.join(' ')
       end
 
+      def user_info_url
+        # support for Office 365 REST API
+        office_only_scope? ? 'https://outlook.office.com/api/v2.0/me' : 'https://graph.microsoft.com/v1.0/me'
+      end
+
       def jwt?
         access_token.token.split('.').size == 3
+      end
+
+      def office_only_scope?
+        scope = options.scope || DEFAULT_SCOPE
+        scope.split(' ').all? { |s| s =~ %r{^https?://outlook\.office\.com} || BASE_SCOPES.include?(s) }
       end
 
       def verify_token(access_token)
