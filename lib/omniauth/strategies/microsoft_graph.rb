@@ -6,6 +6,9 @@ module OmniAuth
       BASE_SCOPE_URL = 'https://graph.microsoft.com/'
       BASE_SCOPES = %w[offline_access openid email profile].freeze
       DEFAULT_SCOPE = 'offline_access openid email profile User.Read'.freeze
+      YAMMER_PROFILE_URL = 'https://www.yammer.com/api/v1/users/current.json'
+      MICROSOFT_GRAPH_PROFILE_URL = 'https://graph.microsoft.com/v1.0/me'
+      MICROSOFT_REST_API_PROFILE_URL = 'https://outlook.office.com/api/v2.0/me'
 
       option :name, :microsoft_graph
 
@@ -66,7 +69,7 @@ module OmniAuth
       end
 
       def raw_info
-        @raw_info ||= access_token.get(user_info_url).parsed
+        @raw_info ||= access_token.get(profile_endpoint).parsed
       rescue StandardError
         raise unless jwt?
 
@@ -79,7 +82,11 @@ module OmniAuth
       end
 
       def custom_build_access_token
-        get_access_token(request)
+        access_token = get_access_token(request)
+        # Get the profile(microsoft graph / yammer / office 365) endpoint choice based on returned bearer token
+        @profile_endpoint = determine_profile_endpoint(request)
+
+        access_token
       end
 
       alias build_access_token custom_build_access_token
@@ -126,18 +133,24 @@ module OmniAuth
         scope_list.join(' ')
       end
 
-      def user_info_url
-        # support for Office 365 REST API
-        office_only_scope? ? 'https://outlook.office.com/api/v2.0/me' : 'https://graph.microsoft.com/v1.0/me'
+      def profile_endpoint
+        @profile_endpoint ||= MICROSOFT_GRAPH_PROFILE_URL
+      end
+
+      def determine_profile_endpoint(request)
+        scope = request&.env&.dig('omniauth.params', 'scope') || options.scope || DEFAULT_SCOPE
+
+        if scope.include?('yammer')
+          YAMMER_PROFILE_URL
+        elsif scope.split(' ').all? { |s| s =~ %r{^https?://outlook\.office\.com} || BASE_SCOPES.include?(s) }
+          MICROSOFT_REST_API_PROFILE_URL
+        else
+          MICROSOFT_GRAPH_PROFILE_URL
+        end
       end
 
       def jwt?
         access_token.token.split('.').size == 3
-      end
-
-      def office_only_scope?
-        scope = options.scope || DEFAULT_SCOPE
-        scope.split(' ').all? { |s| s =~ %r{^https?://outlook\.office\.com} || BASE_SCOPES.include?(s) }
       end
 
       def verify_token(access_token)
